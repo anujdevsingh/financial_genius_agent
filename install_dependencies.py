@@ -1,1 +1,12 @@
-!pip install -Uq google-genai==1.7.0 chromadb==0.6.3 langgraph==0.3.21 langchain-google-genai==2.1.2 pandas matplotlib seaborn plotly ipywidgets python-dotenv
+import subprocess
+import sys
+
+def install_dependencies():
+    """Install all required dependencies for FinGenius AI."""
+    subprocess.check_call([
+        sys.executable, "-m", "pip", "install", "-r", "requirements.txt", "-q"
+    ])
+    print("All dependencies installed successfully!")
+
+if __name__ == "__main__":
+    install_dependencies()

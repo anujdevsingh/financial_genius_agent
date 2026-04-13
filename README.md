@@ -75,6 +75,8 @@ This project showcases **5 comprehensive Gen AI capabilities**:
 fingenius-ai-financial-advisor/
 ├── 📓 fingenius-notebook-gemini-agent.ipynb    # 🌟 Main implementation (RECOMMENDED)
 ├── 🐍 install_dependencies.py                  # Dependency installation script
+├── 📋 requirements.txt                         # Pinned Python dependencies
+├── 🔐 .env.example                             # Environment variable template
 ├── 📄 project_structure.md                     # Detailed technical documentation
 ├── 📄 LICENSE                                  # MIT License
 ├── 📄 .gitignore                               # Python/Jupyter gitignore
@@ -93,22 +95,26 @@ fingenius-ai-financial-advisor/
 
 1. **Clone the repository:**
    ```bash
-   git clone https://github.com/yourusername/fingenius-ai-financial-advisor.git
+   git clone https://github.com/anujdevsingh/fingenius-ai-financial-advisor.git
    cd fingenius-ai-financial-advisor
    ```
 
 2. **Install dependencies:**
    ```bash
-   python install_dependencies.py
+   pip install -r requirements.txt
    ```
-   Or manually install:
+   Or use the installer script:
    ```bash
-   pip install google-genai==1.7.0 chromadb==0.6.3 langgraph==0.3.21 langchain-google-genai==2.1.2
+   python install_dependencies.py
    ```
 
 3. **Set up your Google API Key:**
    - Get your API key from [Google AI Studio](https://makersuite.google.com/app/apikey)
-   - Set up environment variable or use secure methods as shown in notebooks
+   - Copy `.env.example` to `.env` and add your key:
+     ```bash
+     cp .env.example .env
+     # Edit .env and add your GOOGLE_API_KEY
+     ```
 
 4. **Launch Jupyter Notebook:**
    ```bash
@@ -197,8 +203,8 @@ recommendations = generate_budget_advice(patterns, financial_goals)
 
 ### 🔧 **Technology Stack**
 - **AI Framework**: Google Gemini 2.0 Flash-Lite
-- **Agent Framework**: LangGraph 0.3.21
-- **Vector Database**: ChromaDB 0.6.3
+- **Agent Framework**: LangGraph 0.6.11
+- **Vector Database**: ChromaDB 1.5.7
 - **Data Processing**: Pandas, NumPy
 - **Visualization**: Matplotlib, Seaborn, Plotly
 - **Environment**: Jupyter Notebooks

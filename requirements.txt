@@ -1,0 +1,24 @@
+# FinGenius AI - Core Dependencies
+# Last updated: 2026-04-13
+
+# AI & LLM
+google-genai==1.47.0
+langchain-google-genai==2.1.12
+langgraph==0.6.11
+
+# Vector Database
+chromadb==1.5.7
+
+# Data Processing
+pandas==2.2.3
+numpy==2.2.5
+
+# Visualization
+matplotlib==3.10.1
+seaborn==0.13.2
+plotly==6.1.0
+
+# Jupyter & Utilities
+ipywidgets==8.1.5
+python-dotenv==1.1.0
+scikit-learn==1.6.1
