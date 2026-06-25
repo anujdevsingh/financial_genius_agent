@@ -36,7 +36,17 @@ FinGenius addresses these challenges by providing an intelligent, conversational
 
 ## Gen AI Capabilities Demonstrated
 
-This project showcases **5 comprehensive Gen AI capabilities**:
+All 5 capabilities are wired into the LangGraph agent as callable tools, so the
+conversational advisor can use any of them on demand:
+
+| Capability | Implementation | Agent tool |
+|---|---|---|
+| Structured Output | Pydantic `with_structured_output` | `categorize_transaction` |
+| RAG | Chroma + financial knowledge base | `financial_knowledge_lookup` |
+| Embeddings | OpenAI embeddings + similarity search | `find_similar_transactions` |
+| Function Calling | 5 financial calculators | budget / emergency fund / debt / investment / loan |
+| LangGraph Agent | `create_react_agent` + memory | (orchestrates all of the above) |
+
 
 ### 1. Structured Output/JSON Mode
 - Consistent transaction categorization and analysis
@@ -77,10 +87,14 @@ fingenius-ai-financial-advisor/
 │   ├── data/                                # Sample transactions + knowledge base
 │   ├── analysis/                            # Categorization (structured output) + embeddings
 │   ├── rag/                                 # Chroma knowledge base + retrieval
-│   ├── tools/                               # Financial calculators + RAG, as LangChain tools
+│   ├── tools/                               # 8 agent tools: 5 calculators, RAG lookup,
+│   │                                        #   categorize, semantic transaction search
+│   ├── dashboard.py                         # Real KPIs/budget/cashflow for the web dashboard
 │   └── agent/                               # LangGraph conversational advisor (graph.py)
+├── server.py                                # FastAPI server for the design dashboard
+├── web/index.html                           # Pixel-perfect dashboard (Claude Design)
 ├── main.py                                  # CLI chat entry point
-├── app.py                                   # Streamlit web UI
+├── app.py                                   # Streamlit web UI (basic)
 ├── fingenius-notebook-gemini-agent.ipynb    # Original notebook (demo / walkthrough)
 ├── requirements.txt                         # Python dependencies
 ├── .env.example                             # Environment variable template
@@ -115,14 +129,18 @@ fingenius-ai-financial-advisor/
      # Edit .env and set OPENAI_API_KEY
      ```
 
-4. **Chat with the agent (CLI):**
+4. **Launch the dashboard (recommended):**
    ```bash
-   python main.py
+   uvicorn server:app --port 8000
+   # open http://localhost:8000
    ```
+   A polished dark fintech dashboard (KPIs, charts, budget, transactions,
+   investment calculator) with a live AI advisor chat wired to the agent.
 
-5. **Or launch the web app:**
+5. **Or use the simpler interfaces:**
    ```bash
-   streamlit run app.py
+   python main.py        # terminal chat
+   streamlit run app.py  # basic Streamlit web app
    ```
 
 The first run builds a local Chroma vector store from the financial knowledge
