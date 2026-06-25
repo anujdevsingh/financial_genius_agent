@@ -435,7 +435,7 @@
   }
 
   function loadData() {
-    fetch("/api/data").then((r) => r.json()).then(renderData).catch((e) => {
+    fetch("/api/data?sid=" + encodeURIComponent(THREAD)).then((r) => r.json()).then(renderData).catch((e) => {
       console.error(e);
       $("healthSub").textContent = "Could not load data";
     });
@@ -448,6 +448,7 @@
     $("uploadLabel").textContent = "Uploading…";
     const fd = new FormData();
     fd.append("file", f);
+    fd.append("sid", THREAD);
     try {
       const r = await fetch("/api/upload", { method: "POST", body: fd });
       const d = await r.json();

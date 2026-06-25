@@ -11,7 +11,7 @@ import io
 from pathlib import Path
 
 import pandas as pd
-from fastapi import FastAPI, File, UploadFile
+from fastapi import FastAPI, File, Form, UploadFile
 from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel
 
@@ -51,9 +51,9 @@ def index() -> FileResponse:
     return FileResponse(WEB_DIR / "index.html")
 
 
-# In-memory uploaded statement (None = use sample data).
-# ponytail: single global, fine for one-user local demo; use a session store if multi-user.
-_uploaded = {"df": None}
+# Uploaded statement per session id (absent = use sample data).
+# ponytail: in-memory dict, no eviction; add a TTL/LRU if it runs long with many users.
+_uploaded: dict = {}
 
 
 def _normalize(df: pd.DataFrame) -> pd.DataFrame | None:
@@ -94,13 +94,13 @@ def _auto_categorize(df: pd.DataFrame) -> list[str]:
 
 
 @app.get("/api/data")
-def api_data() -> dict:
-    """Real KPIs / categories / budget / cash flow from uploaded or sample data."""
-    return dashboard_snapshot(_uploaded["df"])
+def api_data(sid: str = "default") -> dict:
+    """Real KPIs / categories / budget / cash flow from this session's data."""
+    return dashboard_snapshot(_uploaded.get(sid))
 
 
 @app.post("/api/upload")
-async def api_upload(file: UploadFile = File(...)):
+async def api_upload(file: UploadFile = File(...), sid: str = Form("default")):
     """Upload a transactions/statement CSV (Date, Description, Amount[, Category])."""
     try:
         df = _normalize(pd.read_csv(io.BytesIO(await file.read())))
@@ -108,14 +108,14 @@ async def api_upload(file: UploadFile = File(...)):
         return JSONResponse(status_code=400, content={"error": f"Could not read CSV: {exc}"})
     if df is None or df.empty:
         return JSONResponse(status_code=400, content={"error": "CSV needs Date, Description and Amount columns."})
-    _uploaded["df"] = df
+    _uploaded[sid] = df
     return {"ok": True, "rows": len(df)}
 
 
 @app.post("/api/reset")
-def api_reset() -> dict:
-    """Switch back to the built-in sample data."""
-    _uploaded["df"] = None
+def api_reset(sid: str = "default") -> dict:
+    """Switch this session back to the built-in sample data."""
+    _uploaded.pop(sid, None)
     return {"ok": True}
 
 
@@ -123,7 +123,7 @@ def api_reset() -> dict:
 def api_chat(body: ChatIn) -> dict:
     try:
         # Ground the advisor in the data currently shown on the dashboard.
-        grounded = f"{snapshot_summary(_uploaded['df'])}\n\nUser question: {body.message}"
+        grounded = f"{snapshot_summary(_uploaded.get(body.thread_id))}\n\nUser question: {body.message}"
         return {"reply": agent_chat(grounded, body.thread_id)}
     except Exception as exc:  # noqa: BLE001 - surface a friendly message
         if _is_connection_error(exc):
