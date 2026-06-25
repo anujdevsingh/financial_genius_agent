@@ -24,10 +24,15 @@ NEEDS = {"Housing", "Utilities", "Groceries", "Healthcare", "Transportation", "E
 WANTS = {"Dining", "Shopping", "Entertainment"}
 
 
-def dashboard_snapshot() -> dict:
+def dashboard_snapshot(df=None) -> dict:
     """Compute KPIs, category breakdown, budget, cash flow and recent
-    transactions from the real sample data."""
-    df = generate_transactions().sort_values("Date").reset_index(drop=True)
+    transactions. Uses the sample data unless an uploaded DataFrame is passed."""
+    if df is None:
+        df = generate_transactions()
+    df = df.sort_values("Date").reset_index(drop=True)
+    if "Category" not in df.columns:
+        df["Category"] = "Uncategorized"
+    days = max(int((df["Date"].max() - df["Date"].min()).days), 1)
 
     income = float(df.loc[df.Amount > 0, "Amount"].sum())
     spend = float(-df.loc[df.Amount < 0, "Amount"].sum())
@@ -86,5 +91,16 @@ def dashboard_snapshot() -> dict:
         "budget": budget,
         "cashflow": cashflow,
         "transactions": transactions,
-        "days": 90,
+        "days": days,
     }
+
+
+def snapshot_summary(df=None) -> str:
+    """One-line summary of the current finances, for grounding the AI advisor."""
+    d = dashboard_snapshot(df)
+    top = ", ".join(f"{c['name']} ${c['amount']:,.0f}" for c in d["categories"][:5])
+    return (
+        f"User's current finances (last {d['days']} days): income ${d['income']:,.0f}, "
+        f"spending ${d['spend']:,.0f}, net ${d['net']:,.0f}, savings rate {d['rate']:.1f}%. "
+        f"Top spending categories: {top}."
+    )

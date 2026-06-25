@@ -6,6 +6,16 @@
 ![Gen AI](https://img.shields.io/badge/Gen%20AI-5%20Capabilities-purple.svg)
 ![OpenAI](https://img.shields.io/badge/OpenAI-gpt--4o--mini-412991.svg)
 
+## Launch Video
+
+<div align="center">
+
+https://github.com/anujdevsingh/financial_genius_agent/raw/main/FinGenius%20launch%20video.mp4
+
+</div>
+
+> If the player doesn't load, [download the video](FinGenius%20launch%20video.mp4).
+
 > **Gen AI Intensive Project**  
 > An intelligent financial advisory system showcasing 5 key Gen AI capabilities: Structured Output/JSON Mode, RAG (Retrieval Augmented Generation), Embeddings, Function Calling, and LangGraph Agents.
 
@@ -136,6 +146,9 @@ fingenius-ai-financial-advisor/
    ```
    A polished dark fintech dashboard (KPIs, charts, budget, transactions,
    investment calculator) with a live AI advisor chat wired to the agent.
+   Use **Upload CSV** (Date, Description, Amount[, Category]) to replace the
+   sample data with your own statement — uncategorized rows are auto-labelled,
+   and the advisor chat answers about whatever data is currently shown.
 
 5. **Or use the simpler interfaces:**
    ```bash
