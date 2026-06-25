@@ -10,11 +10,12 @@
 
 <div align="center">
 
-https://github.com/anujdevsingh/financial_genius_agent/raw/main/FinGenius%20launch%20video.mp4
+[![Watch the FinGenius launch video](https://img.shields.io/badge/▶_Watch_the_Launch_Video-1a1f2b?style=for-the-badge&logo=googledrive&logoColor=34d399)](https://drive.google.com/file/d/1xK6NZLXqlXKR88WmD_cypPduBUR7WM2W/view?usp=sharing)
 
 </div>
 
-> If the player doesn't load, [download the video](FinGenius%20launch%20video.mp4).
+> Click to watch on Google Drive. (GitHub can't embed an inline player for Drive
+> videos.) A copy is also committed at [`FinGenius launch video.mp4`](FinGenius%20launch%20video.mp4).
 
 > **Gen AI Intensive Project**  
 > An intelligent financial advisory system showcasing 5 key Gen AI capabilities: Structured Output/JSON Mode, RAG (Retrieval Augmented Generation), Embeddings, Function Calling, and LangGraph Agents.
