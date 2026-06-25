@@ -16,6 +16,10 @@
 
 > Click to watch on Google Drive. (GitHub can't embed an inline player for Drive videos.)
 
+## Dashboard
+
+![FinGenius Dashboard](FinGenius%20Dashboard.png)
+
 > **Gen AI Intensive Project**  
 > An intelligent financial advisory system showcasing 5 key Gen AI capabilities: Structured Output/JSON Mode, RAG (Retrieval Augmented Generation), Embeddings, Function Calling, and LangGraph Agents.
 
