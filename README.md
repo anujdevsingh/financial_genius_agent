@@ -14,8 +14,7 @@
 
 </div>
 
-> Click to watch on Google Drive. (GitHub can't embed an inline player for Drive
-> videos.) A copy is also committed at [`FinGenius launch video.mp4`](FinGenius%20launch%20video.mp4).
+> Click to watch on Google Drive. (GitHub can't embed an inline player for Drive videos.)
 
 > **Gen AI Intensive Project**  
 > An intelligent financial advisory system showcasing 5 key Gen AI capabilities: Structured Output/JSON Mode, RAG (Retrieval Augmented Generation), Embeddings, Function Calling, and LangGraph Agents.

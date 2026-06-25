@@ -4,6 +4,9 @@
 # FinGenius vector store (rebuilt on first run)
 .chroma/
 
+# Launch video kept locally, hosted on Google Drive (too large for git)
+FinGenius launch video.mp4
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
