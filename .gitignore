@@ -1,6 +1,9 @@
 # Claude Code
 .claude/
 
+# FinGenius vector store (rebuilt on first run)
+.chroma/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

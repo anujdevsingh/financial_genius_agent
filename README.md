@@ -1,11 +1,10 @@
 # FinGenius: AI-Powered Personal Finance Advisor
 
-![Python](https://img.shields.io/badge/python-3.8+-blue.svg)
-![Jupyter](https://img.shields.io/badge/jupyter-notebook-orange.svg)
+![Python](https://img.shields.io/badge/python-3.10+-blue.svg)
+![LangChain](https://img.shields.io/badge/LangChain-LangGraph-1C3C3C.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
-![Kaggle](https://img.shields.io/badge/kaggle-capstone-20BEFF.svg)
 ![Gen AI](https://img.shields.io/badge/Gen%20AI-5%20Capabilities-purple.svg)
-![Google Gemini](https://img.shields.io/badge/Google-Gemini-4285F4.svg)
+![OpenAI](https://img.shields.io/badge/OpenAI-gpt--4o--mini-412991.svg)
 
 > **Gen AI Intensive Project**  
 > An intelligent financial advisory system showcasing 5 key Gen AI capabilities: Structured Output/JSON Mode, RAG (Retrieval Augmented Generation), Embeddings, Function Calling, and LangGraph Agents.
@@ -73,23 +72,27 @@ This project showcases **5 comprehensive Gen AI capabilities**:
 
 ```
 fingenius-ai-financial-advisor/
-├── fingenius-notebook-gemini-agent.ipynb    # Main implementation (RECOMMENDED)
-├── install_dependencies.py                  # Dependency installation script
-├── requirements.txt                         # Pinned Python dependencies
+├── fingenius/                               # Application package
+│   ├── config.py                            # Model config + LLM/embedding factories
+│   ├── data/                                # Sample transactions + knowledge base
+│   ├── analysis/                            # Categorization (structured output) + embeddings
+│   ├── rag/                                 # Chroma knowledge base + retrieval
+│   ├── tools/                               # Financial calculators + RAG, as LangChain tools
+│   └── agent/                               # LangGraph conversational advisor (graph.py)
+├── main.py                                  # CLI chat entry point
+├── app.py                                   # Streamlit web UI
+├── fingenius-notebook-gemini-agent.ipynb    # Original notebook (demo / walkthrough)
+├── requirements.txt                         # Python dependencies
 ├── .env.example                             # Environment variable template
-├── project_structure.md                     # Detailed technical documentation
 ├── LICENSE                                  # MIT License
-├── .gitignore                               # Python/Jupyter gitignore
-├── .gitattributes                           # Git attributes configuration
 └── README.md                                # This file
 ```
 
 ## Installation & Quick Start
 
 ### Prerequisites
-- Python 3.8+
-- Jupyter Notebook or JupyterLab
-- Google API Key (for Gemini AI)
+- Python 3.10+
+- OpenAI API Key
 
 ### Quick Setup
 
@@ -103,27 +106,28 @@ fingenius-ai-financial-advisor/
    ```bash
    pip install -r requirements.txt
    ```
-   Or use the installer script:
-   ```bash
-   python install_dependencies.py
-   ```
 
-3. **Set up your Google API Key:**
-   - Get your API key from [Google AI Studio](https://makersuite.google.com/app/apikey)
+3. **Set up your OpenAI API Key:**
+   - Get your API key from [OpenAI](https://platform.openai.com/api-keys)
    - Copy `.env.example` to `.env` and add your key:
      ```bash
      cp .env.example .env
-     # Edit .env and add your GOOGLE_API_KEY
+     # Edit .env and set OPENAI_API_KEY
      ```
 
-4. **Launch Jupyter Notebook:**
+4. **Chat with the agent (CLI):**
    ```bash
-   jupyter notebook
+   python main.py
    ```
 
-5. **Start with the main notebook:**
-   - Open `fingenius-notebook-gemini-agent.ipynb` for the complete implementation
-   - This notebook contains all 5 Gen AI capabilities and is the most comprehensive
+5. **Or launch the web app:**
+   ```bash
+   streamlit run app.py
+   ```
+
+The first run builds a local Chroma vector store from the financial knowledge
+base (cached in `.chroma/`). The original notebook is kept as a walkthrough of
+the five Gen AI capabilities.
 
 ## Main Notebook Features
 
@@ -202,12 +206,13 @@ recommendations = generate_budget_advice(patterns, financial_goals)
 ## Technical Implementation
 
 ### Technology Stack
-- **AI Framework**: Google Gemini 2.0 Flash-Lite
-- **Agent Framework**: LangGraph 0.6.11
-- **Vector Database**: ChromaDB 1.5.7
-- **Data Processing**: Pandas, NumPy
+- **LLM**: OpenAI (`gpt-4o-mini` by default, configurable)
+- **Agent Framework**: LangChain + LangGraph (ReAct agent with tool calling)
+- **Embeddings**: OpenAI `text-embedding-3-small`
+- **Vector Database**: ChromaDB (via `langchain-chroma`)
+- **Data Processing**: Pandas, NumPy, scikit-learn
 - **Visualization**: Matplotlib, Seaborn, Plotly
-- **Environment**: Jupyter Notebooks
+- **Interfaces**: CLI (`main.py`) and Streamlit web app (`app.py`)
 
 ### Performance Features
 - Automated retry mechanisms for API calls
