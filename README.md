@@ -196,6 +196,10 @@ This is a public-demo-ready app, so isolation and privacy were designed in:
   account header is discarded on import and never leaves your machine.
 - 🧾 **In-memory only** — uploaded statements live in server RAM keyed to your session, never
   written to disk or a database.
+- ⏲️ **Auto-expiry** — a statement is purged after **30 min of inactivity** (configurable), so
+  sensitive data doesn't linger and idle sessions don't leak memory.
+- 🚦 **Rate limiting + daily budget cap** — per-session limits stop spam, and a global daily
+  "LLM-unit" cap bounds total OpenAI spend even across many sessions. All tunable via env vars.
 
 ---
 
@@ -210,6 +214,20 @@ The repo includes a `render.yaml` for one-click [Render](https://render.com) dep
 > **No login = your API key pays for every visitor.** Before exposing it publicly, set a
 > **hard spending limit** on your OpenAI account. For a portfolio, the launch video + this
 > repo are the always-on showcase; bring the live demo up on demand.
+
+### Configuration (environment variables)
+
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `OPENAI_API_KEY` | — | Your OpenAI key (required) |
+| `FINGENIUS_CHAT_PER_MIN` | `15` | Max chat messages per session per minute |
+| `FINGENIUS_UPLOAD_PER_MIN` | `5` | Max uploads per session per minute |
+| `FINGENIUS_DAILY_LIMIT` | `600` | Global daily LLM-unit cap (chat = 1, upload = 10) |
+| `FINGENIUS_SESSION_TTL_MIN` | `30` | Minutes of inactivity before an upload is auto-purged |
+| `FINGENIUS_CHAT_MODEL` | `gpt-4o-mini` | OpenAI chat model |
+
+For a tight public demo, lower `FINGENIUS_DAILY_LIMIT` (e.g. `150`) and `FINGENIUS_SESSION_TTL_MIN`
+(e.g. `15`) — together with your OpenAI account spending cap, this keeps cost firmly bounded.
 
 ---
 

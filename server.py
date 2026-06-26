@@ -8,8 +8,11 @@ endpoint that drives the real LangGraph agent.
 """
 
 import io
+import os
 import re
 import secrets
+import time
+from collections import deque
 from pathlib import Path
 
 import pandas as pd
@@ -73,15 +76,76 @@ class ChatIn(BaseModel):
     message: str
 
 
+# --- Rate limiting (protects the OpenAI budget) ----------------------------
+# Per-session sliding windows stop one user from spamming; a global daily cap
+# (counted in "LLM units" — chat=1, upload=10 since upload triggers many calls)
+# is the hard backstop that bounds total spend even across many sessions/IPs.
+# Tune via env without code changes.
+# ponytail: in-memory, single-process — fine for a demo; old buckets clear on
+# restart. Use Redis if this ever runs across multiple instances.
+CHAT_PER_MIN = int(os.getenv("FINGENIUS_CHAT_PER_MIN", "15"))
+UPLOAD_PER_MIN = int(os.getenv("FINGENIUS_UPLOAD_PER_MIN", "5"))
+DAILY_LIMIT = int(os.getenv("FINGENIUS_DAILY_LIMIT", "600"))  # total LLM units/day
+
+_windows: dict[str, deque] = {}
+_global = {"day": -1, "count": 0}
+
+
+def _too_fast(key: str, limit: int, window: float = 60.0) -> bool:
+    """Sliding window: True if `key` already hit `limit` events in `window` secs."""
+    now = time.time()
+    dq = _windows.setdefault(key, deque())
+    while dq and dq[0] <= now - window:
+        dq.popleft()
+    if len(dq) >= limit:
+        return True
+    dq.append(now)
+    return False
+
+
+def _daily_exhausted(cost: int = 1) -> bool:
+    """True once the whole app hits its daily LLM budget. Resets each day."""
+    day = int(time.time() // 86400)
+    if _global["day"] != day:
+        _global["day"], _global["count"] = day, 0
+    if _global["count"] + cost > DAILY_LIMIT:
+        return True
+    _global["count"] += cost
+    return False
+
+
 @app.get("/")
 def index() -> FileResponse:
     return FileResponse(WEB_DIR / "index.html")
 
 
 # Uploaded statement (+ detected currency) per session id (absent = sample data).
-# ponytail: in-memory dict, no eviction; add a TTL/LRU if it runs long with many users.
+# Held only in RAM and auto-purged after SESSION_TTL of inactivity, so sensitive
+# financial data doesn't linger and idle sessions don't leak memory.
 _uploaded: dict = {}
 _currency: dict = {}
+_seen: dict[str, float] = {}  # sid -> last-activity timestamp
+
+SESSION_TTL = int(os.getenv("FINGENIUS_SESSION_TTL_MIN", "30")) * 60
+
+
+def _touch(sid: str) -> None:
+    _seen[sid] = time.time()
+
+
+def _evict(sid: str) -> None:
+    """Forget a session's uploaded data (privacy + memory)."""
+    _uploaded.pop(sid, None)
+    _currency.pop(sid, None)
+    _seen.pop(sid, None)
+    set_active_transactions(None, sid)  # also clears its semantic-search corpus
+
+
+def _sweep_expired() -> None:
+    """Drop every session idle longer than SESSION_TTL."""
+    now = time.time()
+    for sid in [s for s, t in list(_seen.items()) if now - t > SESSION_TTL]:
+        _evict(sid)
 
 CURRENCY_SYMBOLS = {"INR": "₹", "USD": "$", "EUR": "€", "GBP": "£",
                     "JPY": "¥", "AUD": "A$", "CAD": "C$", "SGD": "S$", "AED": "د.إ"}
@@ -269,6 +333,10 @@ def _auto_categorize(df: pd.DataFrame) -> list[str]:
 def api_data(request: Request) -> dict:
     """Real KPIs / categories / budget / cash flow from this session's data."""
     sid = request.state.sid
+    if sid in _uploaded and time.time() - _seen.get(sid, 0) > SESSION_TTL:
+        _evict(sid)  # data expired -> fall back to sample
+    if sid in _uploaded:
+        _touch(sid)
     code = _currency.get(sid, "USD")
     out = dashboard_snapshot(_uploaded.get(sid), symbol=CURRENCY_SYMBOLS[code])
     out["currency"] = code
@@ -280,6 +348,10 @@ async def api_upload(request: Request, file: UploadFile = File(...)):
     """Upload a bank statement (CSV or Excel). Skips account-info preamble rows,
     handles Debit/Credit columns and day-first dates automatically."""
     sid = request.state.sid
+    if _too_fast(f"upload:{sid}", UPLOAD_PER_MIN):
+        return JSONResponse(status_code=429, content={"error": "Too many uploads — please wait a minute."})
+    if _daily_exhausted(cost=10):  # upload can trigger many categorization calls
+        return JSONResponse(status_code=429, content={"error": "The demo has hit its daily usage limit. Try again tomorrow."})
     try:
         raw_bytes = await file.read()
         if len(raw_bytes) > 8_000_000:  # 8 MB cap; statements are tiny
@@ -301,8 +373,10 @@ async def api_upload(request: Request, file: UploadFile = File(...)):
         return JSONResponse(status_code=400, content={"error": f"Could not read file: {exc}"})
     if df is None or df.empty:
         return JSONResponse(status_code=400, content={"error": "Couldn't find a Date + Debit/Credit (or Amount) table in this statement."})
+    _sweep_expired()
     _uploaded[sid] = df
     _currency[sid] = _detect_currency(raw)
+    _touch(sid)
     return {"ok": True, "rows": len(df), "currency": _currency[sid]}
 
 
@@ -318,6 +392,14 @@ def api_reset(request: Request) -> dict:
 @app.post("/api/chat")
 def api_chat(request: Request, body: ChatIn) -> dict:
     sid = request.state.sid  # cookie session, not the client-supplied thread_id
+    if _too_fast(f"chat:{sid}", CHAT_PER_MIN):
+        return {"reply": "⏳ You're sending messages too fast. Please wait a minute and try again."}
+    if _daily_exhausted(cost=1):
+        return {"reply": "⏳ The demo has hit its daily usage limit. Please try again tomorrow."}
+    if sid in _uploaded and time.time() - _seen.get(sid, 0) > SESSION_TTL:
+        _evict(sid)  # data expired -> advisor falls back to sample
+    if sid in _uploaded:
+        _touch(sid)
     try:
         # Ground the advisor in the data currently shown on the dashboard, and
         # point semantic search at the same (redacted) statement.
@@ -334,8 +416,6 @@ def api_chat(request: Request, body: ChatIn) -> dict:
 
 
 if __name__ == "__main__":
-    import os
-
     import uvicorn
 
     # Host platforms inject $PORT; bind 0.0.0.0 so it's reachable. Local default 8000.
