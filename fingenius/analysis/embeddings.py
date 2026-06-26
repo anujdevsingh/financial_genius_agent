@@ -6,8 +6,6 @@ embeddings, plus scikit-learn for clustering / PCA.
 
 import numpy as np
 import pandas as pd
-from sklearn.cluster import KMeans
-from sklearn.decomposition import PCA
 from sklearn.metrics.pairwise import cosine_similarity
 
 from fingenius.config import get_embeddings
@@ -50,22 +48,3 @@ def find_similar_transactions(query_text: str, df: pd.DataFrame, top_n: int = 5,
     return results
 
 
-def cluster_transactions(df: pd.DataFrame, n_clusters: int = 5,
-                         embeddings: np.ndarray | None = None) -> pd.DataFrame:
-    """Cluster transactions by embedding similarity.
-
-    Returns a copy of `df` with Cluster, PCA1 and PCA2 columns added so callers
-    can analyse or plot the clusters.
-    """
-    if embeddings is None:
-        embeddings = embed_transactions(df)
-
-    out = df.copy().reset_index(drop=True)
-    kmeans = KMeans(n_clusters=n_clusters, random_state=42, n_init=10)
-    out["Cluster"] = kmeans.fit_predict(embeddings)
-
-    pca = PCA(n_components=2)
-    coords = pca.fit_transform(embeddings)
-    out["PCA1"] = coords[:, 0]
-    out["PCA2"] = coords[:, 1]
-    return out

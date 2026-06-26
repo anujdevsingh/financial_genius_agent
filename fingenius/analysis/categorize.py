@@ -5,8 +5,6 @@ model returns a validated Pydantic object instead of free-form text we have to
 parse by hand (which is what the original notebook did).
 """
 
-from typing import Literal
-
 import pandas as pd
 from pydantic import BaseModel, Field
 
@@ -19,10 +17,7 @@ _CATEGORY_NAMES = tuple(CATEGORIES.keys())
 class TransactionCategory(BaseModel):
     """Structured result of categorizing a single transaction."""
 
-    category: Literal[
-        "Groceries", "Dining", "Transportation", "Shopping", "Entertainment",
-        "Utilities", "Housing", "Healthcare", "Education", "Income",
-    ] = Field(description="The most appropriate category for the transaction.")
+    category: str = Field(description="The most appropriate category for the transaction.")
     confidence: float = Field(
         ge=0.0, le=1.0, description="Confidence in the categorization, 0 to 1."
     )
