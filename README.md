@@ -1,10 +1,23 @@
-# FinGenius: AI-Powered Personal Finance Advisor
+# FinGenius — AI-Powered Personal Finance Advisor
 
 ![Python](https://img.shields.io/badge/python-3.10+-blue.svg)
+![FastAPI](https://img.shields.io/badge/FastAPI-async-009688.svg)
 ![LangChain](https://img.shields.io/badge/LangChain-LangGraph-1C3C3C.svg)
-![License](https://img.shields.io/badge/license-MIT-green.svg)
-![Gen AI](https://img.shields.io/badge/Gen%20AI-5%20Capabilities-purple.svg)
 ![OpenAI](https://img.shields.io/badge/OpenAI-gpt--4o--mini-412991.svg)
+![Gen AI](https://img.shields.io/badge/Gen%20AI-5%20Capabilities-purple.svg)
+![License](https://img.shields.io/badge/license-MIT-green.svg)
+
+> **Upload your real bank statement → get an instant financial dashboard and chat with an AI advisor grounded in your actual spending.**
+
+FinGenius started life in **2024 as a Gemini-powered Colab notebook** exploring five Gen AI
+capabilities. It worked — but it lived inside cells you had to run top to bottom. This
+repository is the **rebuild**: the same five capabilities, now wired into a real, deployable
+full-stack application with a polished dashboard, a live AI advisor, real bank-statement
+parsing, per-user isolation, and PII redaction.
+
+> *From a notebook nobody could use → to a product you open in a browser.*
+
+---
 
 ## Launch Video
 
@@ -20,315 +33,228 @@
 
 ![FinGenius Dashboard](FinGenius%20Dashboard.png)
 
-> **Gen AI Intensive Project**  
-> An intelligent financial advisory system showcasing 5 key Gen AI capabilities: Structured Output/JSON Mode, RAG (Retrieval Augmented Generation), Embeddings, Function Calling, and LangGraph Agents.
+---
 
-## Project Overview
+## What it does
 
-FinGenius is an AI-powered personal finance advisor that revolutionizes how users interact with their financial data. This system demonstrates cutting-edge generative AI capabilities applied to real-world financial challenges.
+- 📥 **Upload a real bank statement** (CSV or Excel) — it auto-detects the format, skips the
+  account-info preamble, handles separate Debit/Credit columns, day-first dates, and
+  comma-formatted amounts. Tested against **State Bank of India (SBI)** statements.
+- 🏷️ **Automatic categorization** — extracts the merchant/payee from messy UPI strings
+  (`WDL TFR UPI/DR/.../Blinkit/...` → **Blinkit**) and categorizes it. Common Indian merchants
+  match a **free keyword map**; only unknowns hit the LLM (capped per upload to bound cost).
+- 💱 **Currency-aware** — reads the statement's currency (e.g. `INR`) and renders the whole
+  dashboard in **₹** with Indian digit grouping.
+- 📊 **Live dashboard** — KPIs, cash-flow trend, savings rate, 50/30/20 budget, spending by
+  category, and an interactive investment-growth calculator.
+- 💬 **AI advisor** — an always-visible chat rail grounded in *your* numbers. Ask
+  *"where's my money going?"*, *"what's my biggest expense?"*, *"where can I cut back?"* and it
+  answers from your real data, plus does semantic search over your transactions.
+- 🔒 **Private & isolated by design** — see [Security & Privacy](#security--privacy).
 
-### Key Features
+---
 
-- **Smart Transaction Analysis**: Automatically categorizes and analyzes financial transactions using embeddings
-- **Conversational AI Interface**: Natural language interaction for financial queries using LangGraph agents
-- **Intelligent Spending Insights**: Identifies patterns and trends in financial behavior
-- **Personalized Recommendations**: Tailored advice based on individual financial profiles using RAG
-- **Structured Financial Reports**: JSON-mode output for consistent data formatting
-- **Advanced Financial Calculations**: Function calling for loans, investments, and budget planning
-- **Knowledge-Based Advice**: Evidence-based recommendations from financial literature
+## Architecture
 
-## Problem Statement
+```mermaid
+flowchart LR
+    subgraph Browser["🖥️  Browser (single-page app)"]
+        direction TB
+        UI["📊 Dashboard<br/>KPIs · charts · categories"]
+        Chat["💬 AI Advisor<br/>(sticky chat rail)"]
+    end
 
-Many individuals struggle with effective financial management, needing help with:
-- Understanding spending patterns and financial behavior
-- Getting personalized, accessible financial advice
-- Learning financial concepts and best practices
-- Creating and maintaining realistic budgets
-- Planning for short and long-term financial goals
+    subgraph Server["⚙️  FastAPI · server.py"]
+        direction TB
+        Session["🔑 Session cookie<br/>HttpOnly · 256-bit · per-user"]
+        Ingest["📥 Statement ingest<br/>CSV/XLSX · preamble skip<br/>debit/credit · day-first · INR"]
+        Redact["🔒 PII redaction<br/>account & ref numbers stripped"]
+        Snapshot["📈 Dashboard snapshot<br/>KPIs · budget · cash flow"]
+    end
 
-FinGenius addresses these challenges by providing an intelligent, conversational assistant that analyzes financial data and offers personalized guidance.
+    subgraph Brain["🤖  LangGraph ReAct Agent"]
+        direction TB
+        T1["🧮 Calculators"]
+        T2["📚 RAG lookup"]
+        T3["🏷️ Categorize"]
+        T4["🔎 Semantic search"]
+    end
 
-## Gen AI Capabilities Demonstrated
+    OpenAI["☁️ OpenAI<br/>gpt-4o-mini · embeddings"]
+    Chroma[("🗄️ Chroma<br/>knowledge base")]
 
-All 5 capabilities are wired into the LangGraph agent as callable tools, so the
-conversational advisor can use any of them on demand:
+    UI -- "upload" --> Ingest
+    Ingest --> Snapshot --> UI
+    Chat -- "/api/chat" --> Session --> Brain
+    Brain --> T1 & T2 & T3 & T4
+    Brain -- "grounded + redacted" --> Redact --> OpenAI
+    Ingest -. "merchant (redacted)" .-> OpenAI
+    T2 --> Chroma
+    T4 -- "embed search" --> OpenAI
+```
 
-| Capability | Implementation | Agent tool |
-|---|---|---|
-| Structured Output | Pydantic `with_structured_output` | `categorize_transaction` |
-| RAG | Chroma + financial knowledge base | `financial_knowledge_lookup` |
-| Embeddings | OpenAI embeddings + similarity search | `find_similar_transactions` |
-| Function Calling | 5 financial calculators | budget / emergency fund / debt / investment / loan |
-| LangGraph Agent | `create_react_agent` + memory | (orchestrates all of the above) |
+**Flow:** the browser holds only a server-issued session cookie. Uploads are normalized and
+categorized server-side, then a snapshot drives the dashboard. The chat grounds a LangGraph
+agent in your data and routes everything through a redaction layer before it reaches OpenAI.
 
+---
 
-### 1. Structured Output/JSON Mode
-- Consistent transaction categorization and analysis
-- Standardized budget breakdown visualization
-- Structured financial health summary reports
-- Automated expense pattern detection
+## The 5 Gen AI Capabilities
 
-### 2. RAG (Retrieval Augmented Generation)
-- Financial knowledge base integration for evidence-based advice
-- Retrieval of relevant financial best practices and strategies
-- Access to financial regulations and terminology explanations
-- Context-aware recommendations based on financial literature
+All five are wired into the LangGraph agent as callable tools, so the conversational advisor
+can reach any of them on demand.
 
-### 3. Embeddings
-- Semantic understanding of transaction descriptions and patterns
-- Intelligent clustering of similar expenses and spending categories
-- Advanced spending pattern recognition over time periods
-- Similarity search for financial concepts and advice
+| # | Capability | Implementation | Agent tool |
+|---|------------|----------------|------------|
+| 1 | **Structured Output** | Pydantic `with_structured_output` → typed `TransactionCategory` | `categorize_transaction` |
+| 2 | **RAG** | Chroma vector store over a financial knowledge base | `financial_knowledge_lookup` |
+| 3 | **Embeddings** | OpenAI embeddings + cosine similarity over your statement | `find_similar_transactions` |
+| 4 | **Function Calling** | 5 financial calculators (budget · emergency fund · debt · investment · loan) | `calculate_*` |
+| 5 | **Agents (LangGraph)** | `create_react_agent` + memory, orchestrating all of the above | *(the advisor itself)* |
 
-### 4. Function Calling
-- Automated financial calculations (savings projections, interest calculations)
-- Real-time data processing and financial metric computation
-- Integration capabilities for external financial data sources
-- Advanced budget allocation and optimization algorithms
+---
 
-### 5. Agents with LangGraph
-- Sophisticated conversational financial advisor workflow
-- Multi-step financial planning and goal-setting processes
-- Intelligent decision trees for personalized recommendations
-- Stateful conversation management across financial topics
+## Tech Stack
+
+| Layer | Technology |
+|-------|------------|
+| **LLM** | OpenAI `gpt-4o-mini` (configurable) |
+| **Agent framework** | LangChain + **LangGraph** (ReAct agent with tool calling + memory) |
+| **Embeddings** | OpenAI `text-embedding-3-small` |
+| **Vector store** | ChromaDB (`langchain-chroma`) |
+| **Backend** | FastAPI + Uvicorn |
+| **Data** | pandas · NumPy · scikit-learn · openpyxl |
+| **Frontend** | Single-file dashboard (vanilla HTML/CSS/JS, no build step) |
+
+---
+
+## Quick Start
+
+**Prerequisites:** Python 3.10+ and an OpenAI API key.
+
+```bash
+# 1. Clone
+git clone https://github.com/anujdevsingh/financial_genius_agent.git
+cd financial_genius_agent
+
+# 2. Install
+pip install -r requirements.txt
+
+# 3. Add your key
+cp .env.example .env        # then edit .env and set OPENAI_API_KEY
+
+# 4. Run the dashboard
+uvicorn server:app --reload --port 8000
+# open http://localhost:8000
+```
+
+Click **Upload statement**, pick your bank's CSV/Excel export, and the dashboard + advisor
+update to your real data. No upload? It runs on a built-in sample dataset.
+
+Simpler alternatives:
+
+```bash
+python main.py        # terminal chat with the agent
+streamlit run app.py  # basic Streamlit UI
+```
+
+> The first run builds a local Chroma vector store from the knowledge base (cached in `.chroma/`).
+
+---
+
+## Bank Statement Support
+
+The importer is built for **real, messy statements**, not just clean CSVs:
+
+- **Formats:** `.csv`, `.xlsx`, `.xls`
+- **Preamble handling:** automatically finds the real transaction table below account-info rows
+- **Column aliases:** `Date`/`Transaction Date`, `Narration`/`Particulars`/`Details`,
+  `Withdrawal Amt.`/`Deposit Amt.`, `Debit`/`Credit`, `Amount`, …
+- **Debit/Credit split** → single signed amount (debit = spend, credit = income)
+- **Day-first dates** (`01/03/2026` → 1 March) and **comma amounts** (`1,250.00`)
+- **Encoding fallback** (UTF-8 → cp1252 for Windows-exported bank CSVs)
+- **UPI/IMPS merchant extraction** + Indian merchant keyword categorization
+
+Minimum required columns: a **date**, a **description**, and either an **amount** or
+**debit/credit** columns.
+
+---
+
+## Security & Privacy
+
+This is a public-demo-ready app, so isolation and privacy were designed in:
+
+- 🔑 **Server-issued sessions** — a cryptographically strong (256-bit) **HttpOnly** cookie.
+  The server never trusts a client-supplied id, so no one can guess or set another user's
+  session. Each visitor's dashboard, chat, and search are fully isolated.
+- 🔒 **PII redaction before the LLM** — account numbers, customer/reference IDs, and UPI VPAs
+  are stripped from everything sent to OpenAI (chat grounding, categorization, and the
+  semantic-search corpus). Merchant names and amounts are kept so advice stays useful; the
+  account header is discarded on import and never leaves your machine.
+- 🧾 **In-memory only** — uploaded statements live in server RAM keyed to your session, never
+  written to disk or a database.
+
+---
+
+## Deployment
+
+The repo includes a `render.yaml` for one-click [Render](https://render.com) deploys:
+
+1. Push to GitHub and create a Render **Blueprint** from the repo.
+2. Set `OPENAI_API_KEY` as an environment variable in the Render dashboard.
+3. Deploy → you get a public `https://…onrender.com` URL.
+
+> **No login = your API key pays for every visitor.** Before exposing it publicly, set a
+> **hard spending limit** on your OpenAI account. For a portfolio, the launch video + this
+> repo are the always-on showcase; bring the live demo up on demand.
+
+---
 
 ## Project Structure
 
 ```
-fingenius-ai-financial-advisor/
-├── fingenius/                               # Application package
-│   ├── config.py                            # Model config + LLM/embedding factories
-│   ├── data/                                # Sample transactions + knowledge base
-│   ├── analysis/                            # Categorization (structured output) + embeddings
-│   ├── rag/                                 # Chroma knowledge base + retrieval
-│   ├── tools/                               # 8 agent tools: 5 calculators, RAG lookup,
-│   │                                        #   categorize, semantic transaction search
-│   ├── dashboard.py                         # Real KPIs/budget/cashflow for the web dashboard
-│   └── agent/                               # LangGraph conversational advisor (graph.py)
-├── server.py                                # FastAPI server for the design dashboard
-├── web/index.html                           # Pixel-perfect dashboard (Claude Design)
-├── main.py                                  # CLI chat entry point
-├── app.py                                   # Streamlit web UI (basic)
-├── fingenius-notebook-gemini-agent.ipynb    # Original notebook (demo / walkthrough)
-├── requirements.txt                         # Python dependencies
-├── .env.example                             # Environment variable template
-├── LICENSE                                  # MIT License
-└── README.md                                # This file
+financial_genius_agent/
+├── fingenius/                 # Application package
+│   ├── config.py             # Model config + LLM/embedding factories
+│   ├── privacy.py            # PII redaction before any LLM call
+│   ├── data/                 # Sample transactions + financial knowledge base
+│   ├── analysis/             # Categorization (structured output) + embeddings
+│   ├── rag/                  # Chroma knowledge base + retriever
+│   ├── tools/                # Agent tools: 5 calculators, RAG lookup,
+│   │                         #   categorize, per-session semantic search
+│   ├── dashboard.py          # KPIs / budget / cash flow snapshot (+ advisor grounding)
+│   └── agent/                # LangGraph conversational advisor (graph.py)
+├── server.py                 # FastAPI server: sessions, upload, dashboard, chat
+├── web/index.html            # Single-file dashboard + AI chat rail
+├── main.py                   # CLI chat entry point
+├── app.py                    # Streamlit UI
+├── render.yaml               # One-click deploy config
+├── requirements.txt
+├── .env.example
+└── fingenius-notebook-gemini-agent.ipynb   # Original Colab notebook (the origin story)
 ```
-
-## Installation & Quick Start
-
-### Prerequisites
-- Python 3.10+
-- OpenAI API Key
-
-### Quick Setup
-
-1. **Clone the repository:**
-   ```bash
-   git clone https://github.com/anujdevsingh/fingenius-ai-financial-advisor.git
-   cd fingenius-ai-financial-advisor
-   ```
-
-2. **Install dependencies:**
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-3. **Set up your OpenAI API Key:**
-   - Get your API key from [OpenAI](https://platform.openai.com/api-keys)
-   - Copy `.env.example` to `.env` and add your key:
-     ```bash
-     cp .env.example .env
-     # Edit .env and set OPENAI_API_KEY
-     ```
-
-4. **Launch the dashboard (recommended):**
-   ```bash
-   uvicorn server:app --port 8000
-   # open http://localhost:8000
-   ```
-   A polished dark fintech dashboard (KPIs, charts, budget, transactions,
-   investment calculator) with a live AI advisor chat wired to the agent.
-   Use **Upload CSV** (Date, Description, Amount[, Category]) to replace the
-   sample data with your own statement — uncategorized rows are auto-labelled,
-   and the advisor chat answers about whatever data is currently shown.
-
-5. **Or use the simpler interfaces:**
-   ```bash
-   python main.py        # terminal chat
-   streamlit run app.py  # basic Streamlit web app
-   ```
-
-The first run builds a local Chroma vector store from the financial knowledge
-base (cached in `.chroma/`). The original notebook is kept as a walkthrough of
-the five Gen AI capabilities.
-
-## Main Notebook Features
-
-The **`fingenius-notebook-gemini-agent.ipynb`** notebook (334KB) includes:
-
-| Feature | Implementation | Status |
-|---------|----------------|--------|
-| Structured Output/JSON Mode | Transaction categorization, budget reports | Complete |
-| RAG (Retrieval Augmented Generation) | Financial knowledge base integration | Complete |
-| Embeddings | Semantic transaction analysis | Complete |
-| Function Calling | Financial calculations & data processing | Complete |
-| Agents with LangGraph | Conversational financial advisor workflow | Complete |
-
-**This is your complete Gen AI showcase** - all 5 capabilities in one comprehensive notebook!
-
-## Usage Examples
-
-The main notebook demonstrates comprehensive financial scenarios:
-
-### Transaction Analysis
-```python
-# Automatic categorization and pattern recognition
-transactions = load_financial_data()
-insights = analyze_spending_patterns(transactions)
-```
-
-### Conversational Financial Advice
-```python
-# Natural language financial queries
-response = financial_advisor.query("How should I budget my $5000 monthly income?")
-```
-
-### Financial Calculations
-```python
-# Automated loan and investment calculations
-mortgage_payment = calculate_loan_payment(300000, 0.045, 30)
-investment_growth = calculate_investment_return(10000, 0.08, 20)
-```
-
-### Spending Insights
-```python
-# Pattern detection and recommendations
-patterns = find_spending_patterns(transaction_embeddings)
-recommendations = generate_budget_advice(patterns, financial_goals)
-```
-
-## Security & Privacy
-
-- **Secure API Key Handling**: Uses environment variables and secure client methods
-- **No Hardcoded Secrets**: All sensitive information properly externalized
-- **Synthetic Data**: All examples use generated/sample data for demonstrations
-- **Privacy Best Practices**: Follows financial data handling guidelines
-
-## Real-World Applications
-
-### Financial Services
-- Personal banking applications with AI-powered insights
-- Credit union member financial wellness programs
-- Robo-advisor platforms with conversational interfaces
-
-### Fintech Solutions
-- Mobile budgeting apps with intelligent categorization
-- Investment platforms with personalized advice
-- Expense tracking with automated pattern recognition
-
-### Financial Education
-- Educational platforms teaching financial literacy
-- Personal finance coaching tools
-- Financial planning software for advisors
-
-### Financial Inclusion
-- Accessible financial advice for underserved populations
-- Multilingual financial guidance systems
-- Microfinance and community banking solutions
-
-## Technical Implementation
-
-### Technology Stack
-- **LLM**: OpenAI (`gpt-4o-mini` by default, configurable)
-- **Agent Framework**: LangChain + LangGraph (ReAct agent with tool calling)
-- **Embeddings**: OpenAI `text-embedding-3-small`
-- **Vector Database**: ChromaDB (via `langchain-chroma`)
-- **Data Processing**: Pandas, NumPy, scikit-learn
-- **Visualization**: Matplotlib, Seaborn, Plotly
-- **Interfaces**: CLI (`main.py`) and Streamlit web app (`app.py`)
-
-### Performance Features
-- Automated retry mechanisms for API calls
-- Exponential backoff for rate limit handling
-- Efficient embedding-based similarity search
-- Optimized function calling workflows
-
-## Future Enhancements
-
-### Technical Improvements
-- [ ] Real-time financial data integration (APIs for banks/cards)
-- [ ] Advanced ML models for fraud detection
-- [ ] Multi-language support for global accessibility
-- [ ] Mobile app development with React Native/Flutter
-
-### Business Features
-- [ ] Goal-based financial planning modules
-- [ ] Investment portfolio optimization
-- [ ] Tax optimization strategies
-- [ ] Retirement planning calculators
-
-### Enterprise Features
-- [ ] End-to-end encryption for sensitive data
-- [ ] Compliance with financial regulations (PCI DSS, GDPR)
-- [ ] Multi-tenant architecture for scalability
-- [ ] Advanced analytics dashboard for financial advisors
-
-## Contributing
-
-This project was developed as an educational capstone, but contributions are welcome!
-
-### How to Contribute
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
-
-### Contribution Ideas
-- Additional financial calculation functions
-- Enhanced visualization capabilities
-- New Gen AI capability demonstrations
-- Performance optimizations
-- Documentation improvements
-
-## License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## Acknowledgments
-
-- **Google**: For providing the powerful Gemini AI platform
-- **LangChain Community**: For the incredible agent framework and tools
-- **Open Source Community**: For the various libraries and tools used
-- **IITM BS Data Science Program**: For the educational foundation
-
-## Connect & Support
-
-- **GitHub**: [Open an issue](https://github.com/anujdevsingh/fingenius-ai-financial-advisor/issues) for questions or suggestions
 
 ---
 
-<div align="center">
+## Origin: the notebook
 
-**If FinGenius helps with your financial AI projects, please star this repository!**
+The original **`fingenius-notebook-gemini-agent.ipynb`** is kept in the repo as the project's
+starting point — a Gemini-based walkthrough of the five Gen AI capabilities. Everything in
+`fingenius/` is the productionized rebuild of those ideas on an OpenAI + LangGraph stack.
 
-*Built for the Gen AI community*
+---
 
-![Visitor Count](https://visitor-badge.laobi.icu/badge?page_id=fingenius-ai-financial-advisor)
+## License
 
-</div>
+MIT — see [LICENSE](LICENSE).
 
 ## Author
 
 <div align="center">
 
 ### **Anuj Dev Singh**
-*AI/ML Enthusiast | Data Science Student | Gen AI Developer*
+*AI/ML Enthusiast · Data Science Student · Gen AI Developer*
+
+*"Bridging the gap between advanced AI and practical financial tools for everyone."*
 
 </div>
-
----
-
-*"Bridging the gap between advanced AI technology and practical financial solutions for everyone."*
