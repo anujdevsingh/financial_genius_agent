@@ -29,6 +29,7 @@ streamlit>=1.38.0          # original simple dashboard (app.py)
 fastapi>=0.115.0           # design-perfect dashboard server (server.py)
 uvicorn[standard]>=0.30.0  # ASGI server for FastAPI
 python-multipart>=0.0.9    # file uploads (statement CSV)
+openpyxl>=3.1.0            # read .xlsx bank statements
 
 # Utilities
 python-dotenv>=1.0.0

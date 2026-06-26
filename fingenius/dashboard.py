@@ -3,6 +3,7 @@ web dashboard shows actual computed figures instead of hard-coded demo values.
 """
 
 from fingenius.data import generate_transactions
+from fingenius.privacy import redact
 
 # Visual mapping per category (icon + 2-stop bar gradient), matching the design.
 CATEGORY_STYLE = {
@@ -16,17 +17,19 @@ CATEGORY_STYLE = {
     "Utilities": ("⚡", ["#7c3aed", "#a78bfa"]),
     "Healthcare": ("💊", ["#e11d48", "#fb7185"]),
     "Entertainment": ("🎬", ["#60a5fa", "#93c5fd"]),
+    "Transfers": ("🔁", ["#64748b", "#94a3b8"]),
 }
 _DEFAULT_STYLE = ("💳", ["#10b981", "#34d399"])
 
-# 50/30/20 buckets.
+# 50/30/20 buckets (Transfers / Income sit outside needs & wants).
 NEEDS = {"Housing", "Utilities", "Groceries", "Healthcare", "Transportation", "Education"}
 WANTS = {"Dining", "Shopping", "Entertainment"}
 
 
-def dashboard_snapshot(df=None) -> dict:
+def dashboard_snapshot(df=None, symbol="$") -> dict:
     """Compute KPIs, category breakdown, budget, cash flow and recent
-    transactions. Uses the sample data unless an uploaded DataFrame is passed."""
+    transactions. Uses the sample data unless an uploaded DataFrame is passed.
+    `symbol` is the currency symbol used for preformatted strings."""
     if df is None:
         df = generate_transactions()
     df = df.sort_values("Date").reset_index(drop=True)
@@ -66,17 +69,19 @@ def dashboard_snapshot(df=None) -> dict:
     ]
 
     # Most recent transactions.
-    recent = df.sort_values("Date", ascending=False).head(8)
+    recent = df.sort_values("Date", ascending=False)
+    has_merchant = "Merchant" in df.columns
     transactions = []
     for r in recent.itertuples():
         icon = CATEGORY_STYLE.get(r.Category, _DEFAULT_STYLE)[0]
         sign = "+" if r.Amount > 0 else "-"
+        name = r.Merchant if has_merchant and r.Merchant else r.Description
         transactions.append(
             {
-                "name": r.Description,
+                "name": name,
                 "category": r.Category,
                 "date": r.Date.strftime("%b %d"),
-                "amount": f"{sign}${abs(r.Amount):,.2f}",
+                "amount": f"{sign}{symbol}{abs(r.Amount):,.2f}",
                 "positive": bool(r.Amount > 0),
                 "icon": icon,
             }
@@ -92,15 +97,39 @@ def dashboard_snapshot(df=None) -> dict:
         "cashflow": cashflow,
         "transactions": transactions,
         "days": days,
+        "symbol": symbol,
     }
 
 
-def snapshot_summary(df=None) -> str:
-    """One-line summary of the current finances, for grounding the AI advisor."""
-    d = dashboard_snapshot(df)
-    top = ", ".join(f"{c['name']} ${c['amount']:,.0f}" for c in d["categories"][:5])
-    return (
-        f"User's current finances (last {d['days']} days): income ${d['income']:,.0f}, "
-        f"spending ${d['spend']:,.0f}, net ${d['net']:,.0f}, savings rate {d['rate']:.1f}%. "
-        f"Top spending categories: {top}."
-    )
+def snapshot_summary(df=None, symbol="$") -> str:
+    """Grounding for the AI advisor: a compact but complete picture of the
+    user's actual data (totals, every category, top payees, monthly flow,
+    biggest transactions) so it answers from real numbers, not generics."""
+    if df is None:
+        df = generate_transactions()
+    if "Category" not in df.columns:
+        df = df.assign(Category="Uncategorized")
+    d = dashboard_snapshot(df, symbol=symbol)
+    s = symbol
+    name_col = "Merchant" if "Merchant" in df.columns else "Description"
+
+    lines = [
+        f"User's finances (last {d['days']} days): income {s}{d['income']:,.0f}, "
+        f"spending {s}{d['spend']:,.0f}, net {s}{d['net']:,.0f}, savings rate {d['rate']:.1f}%."
+    ]
+    if d["categories"]:
+        lines.append("Spending by category: "
+                     + "; ".join(f"{c['name']} {s}{c['amount']:,.0f}" for c in d["categories"]) + ".")
+    spend = df[df.Amount < 0]
+    if not spend.empty:
+        top_m = spend.groupby(name_col)["Amount"].sum().abs().sort_values(ascending=False).head(8)
+        lines.append("Top payees/merchants by spend: "
+                     + "; ".join(f"{redact(n)} {s}{a:,.0f}" for n, a in top_m.items()) + ".")
+    if d["cashflow"]:
+        lines.append("Monthly net cash flow: "
+                     + "; ".join(f"{c['label']} {s}{c['net']:,.0f}" for c in d["cashflow"]) + ".")
+    big = df.loc[df.Amount.abs().sort_values(ascending=False).index].head(6)
+    lines.append("Largest transactions: " + "; ".join(
+        f"{r.Date:%b %d} {redact(getattr(r, name_col))} {s}{r.Amount:,.0f} ({r.Category})"
+        for r in big.itertuples()) + ".")
+    return "\n".join(lines)
