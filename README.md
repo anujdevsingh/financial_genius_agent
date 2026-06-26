@@ -58,39 +58,42 @@ parsing, per-user isolation, and PII redaction.
 
 ```mermaid
 flowchart LR
-    subgraph Browser["🖥️  Browser (single-page app)"]
-        direction TB
-        UI["📊 Dashboard<br/>KPIs · charts · categories"]
-        Chat["💬 AI Advisor<br/>(sticky chat rail)"]
+    subgraph Browser
+        UI["Dashboard<br/>KPIs, charts, categories"]
+        Chat["AI Advisor<br/>sticky chat rail"]
     end
 
-    subgraph Server["⚙️  FastAPI · server.py"]
-        direction TB
-        Session["🔑 Session cookie<br/>HttpOnly · 256-bit · per-user"]
-        Ingest["📥 Statement ingest<br/>CSV/XLSX · preamble skip<br/>debit/credit · day-first · INR"]
-        Redact["🔒 PII redaction<br/>account & ref numbers stripped"]
-        Snapshot["📈 Dashboard snapshot<br/>KPIs · budget · cash flow"]
+    subgraph Server["FastAPI - server.py"]
+        Session["Session cookie<br/>HttpOnly, 256-bit, per-user"]
+        Ingest["Statement ingest<br/>CSV/XLSX, debit/credit<br/>day-first dates, INR detect"]
+        Redact["PII redaction<br/>account and ref numbers stripped"]
+        Snapshot["Dashboard snapshot<br/>KPIs, budget, cash flow"]
     end
 
-    subgraph Brain["🤖  LangGraph ReAct Agent"]
-        direction TB
-        T1["🧮 Calculators"]
-        T2["📚 RAG lookup"]
-        T3["🏷️ Categorize"]
-        T4["🔎 Semantic search"]
+    subgraph Brain["LangGraph ReAct Agent"]
+        T1["Calculators"]
+        T2["RAG lookup"]
+        T3["Categorize"]
+        T4["Semantic search"]
     end
 
-    OpenAI["☁️ OpenAI<br/>gpt-4o-mini · embeddings"]
-    Chroma[("🗄️ Chroma<br/>knowledge base")]
+    OpenAI["OpenAI<br/>gpt-4o-mini + embeddings"]
+    Chroma[("Chroma<br/>knowledge base")]
 
-    UI -- "upload" --> Ingest
-    Ingest --> Snapshot --> UI
-    Chat -- "/api/chat" --> Session --> Brain
-    Brain --> T1 & T2 & T3 & T4
-    Brain -- "grounded + redacted" --> Redact --> OpenAI
-    Ingest -. "merchant (redacted)" .-> OpenAI
+    UI -->|upload| Ingest
+    Ingest --> Snapshot
+    Snapshot --> UI
+    Chat -->|chat| Session
+    Session --> Brain
+    Brain --> T1
+    Brain --> T2
+    Brain --> T3
+    Brain --> T4
+    Brain -->|grounded and redacted| Redact
+    Redact --> OpenAI
+    Ingest -.->|merchant redacted| OpenAI
     T2 --> Chroma
-    T4 -- "embed search" --> OpenAI
+    T4 -->|embed search| OpenAI
 ```
 
 **Flow:** the browser holds only a server-issued session cookie. Uploads are normalized and
