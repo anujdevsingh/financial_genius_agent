@@ -22,9 +22,10 @@ def redact(text) -> str:
 
 
 if __name__ == "__main__":  # ponytail: smallest check that redaction holds
-    assert redact("Blinkit/YESB/pa ytm-blin/Blink 0097694162092 AT 31821") \
-        == "Blinkit/YESB/pa ytm-blin/Blink AT", redact("Blinkit 0097694162092 AT 31821")
-    assert redact("CRED Club cred.club@axisbank") == "CRED Club", redact("CRED Club cred.club@axisbank")
-    assert redact("Snapmint T219097") == "Snapmint T"
-    assert redact("CHAYAN") == "CHAYAN"  # plain name untouched
+    # Synthetic examples only — no real statement data.
+    assert redact("Merchant/BANK/handle/Pay 1234567890123 AT 00000") \
+        == "Merchant/BANK/handle/Pay AT", redact("Merchant 1234567890123 AT 00000")
+    assert redact("Example Co example@bank") == "Example Co", redact("Example Co example@bank")
+    assert redact("Sample T999999") == "Sample T"
+    assert redact("FIRSTNAME") == "FIRSTNAME"  # plain name untouched
     print("redact OK")

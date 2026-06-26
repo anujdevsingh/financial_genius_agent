@@ -252,7 +252,7 @@ def _merchant(desc: str) -> str:
     """Pull the payee/merchant out of a raw bank narration.
 
     Indian UPI/IMPS strings look like
-    'WDL TFR UPI/DR/651523675021/Blinkit/YESB/pa ytm-blin/...': the party name
+    'WDL TFR UPI/DR/1234567890/MerchantName/BANK/handle/...': the party name
     is the segment right after the long numeric reference. Falls back to the
     cleaned head of the description for non-UPI rows (mandates, charges, etc.).
     """
